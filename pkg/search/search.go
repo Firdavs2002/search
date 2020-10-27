@@ -5,6 +5,7 @@ package search
 import (
 	"bufio"
 	"context"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -28,8 +29,6 @@ func All(ctx context.Context, phrase string, files []string) <-chan []Result {
 	ch := make(chan []Result)
 	wg := sync.WaitGroup{}
 
-	//var results []Result
-
 	ctx, cancel := context.WithCancel(ctx)
 
 	for i := 0; i < len(files); i++ {
@@ -38,7 +37,7 @@ func All(ctx context.Context, phrase string, files []string) <-chan []Result {
 		go func(ctx context.Context, path string, i int, ch chan<- []Result) {
 			defer wg.Done()
 
-			res, err := FindAllMatchTextInFile(phrase, path)
+			res, err := FindAll(phrase, path)
 			if err != nil {
 				log.Println("error not opened file err => ", err)
 				return
@@ -61,8 +60,54 @@ func All(ctx context.Context, phrase string, files []string) <-chan []Result {
 	return ch
 }
 
-//FindAllMatchTextInFile ...
-func FindAllMatchTextInFile(phrase, path string) ([]Result, error) {
+//Any ...
+func Any(ctx context.Context, phrase string, files []string) <-chan Result {
+	ch := make(chan Result)
+	wg := sync.WaitGroup{}
+	result := Result{}
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	for _, f := range files {
+		file, err := ioutil.ReadFile(f)
+		if err != nil {
+			log.Println("error while open file: ", err)
+		}
+
+		if strings.Contains(string(file), phrase) {
+			res, err := FindAny(phrase, string(file))
+			if err != nil {
+				log.Println("error while open file: ", err)
+			}
+
+			if (Result{}) != res {
+				result = res
+				break
+			}
+		}
+
+	}
+
+	wg.Add(1)
+	go func(ctx context.Context, ch chan<- Result) {
+		defer wg.Done()
+		if (Result{}) != result {
+			ch <- result
+		}
+	}(ctx, ch)
+
+	go func() {
+		defer close(ch)
+		wg.Wait()
+
+	}()
+
+	cancel()
+	return ch
+}
+
+//FindAll ...
+func FindAll(phrase, path string) ([]Result, error) {
 	res := []Result{}
 	file, err := os.Open(path)
 	if err != nil {
@@ -93,30 +138,19 @@ func FindAllMatchTextInFile(phrase, path string) ([]Result, error) {
 	return res, nil
 }
 
-/*data, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Println("error not opened file err => ", err)
-		return res
-	}
-
-	file := string(data)
-
-	temp := strings.Split(file, "\n")
-
-	for i, line := range temp {
-
-		if strings.Contains(line, phrase) {
-
-			r := Result{
+//FindAny ...
+func FindAny(phrase, path string) (Result, error) {
+	var lines []string
+	res := Result{}
+	for i := 0; i < len(lines); i++ {
+		if strings.Contains(lines[i], phrase) {
+			res = Result{
 				Phrase:  phrase,
-				Line:    line,
+				Line:    lines[i],
 				LineNum: int64(i + 1),
-				ColNum:  int64(strings.Index(line, phrase)) + 1,
+				ColNum:  int64(strings.Index(lines[i], phrase)) + 1,
 			}
-
-			res = append(res, r)
 		}
 	}
-
-	return res
-} */
+	return res, nil
+}

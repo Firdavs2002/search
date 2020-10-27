@@ -18,3 +18,21 @@ func TestAll_user(t *testing.T) {
 	log.Println("s = ", s)
 
 }
+
+func TestAny_user(t *testing.T) {
+
+	res := Any(context.Background(), "HTTP", []string{"../../test.txt", "../../test copy.txt"})
+
+	r, ok := <-res
+	if !ok {
+		log.Println("error Any ok =>", ok)
+	}
+
+	log.Println("---------------")
+	log.Println("res.Phrase) => ", r.Phrase)
+	log.Println("res.Line) => ", r.Line)
+	log.Println("res.LineNum) => ", r.LineNum)
+	log.Println("res.ColNum) => ", r.ColNum)
+	log.Println("---------------")
+
+}
